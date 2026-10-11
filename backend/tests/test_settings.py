@@ -1,11 +1,13 @@
 import importlib
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 
 
 def _load(module: str, monkeypatch, **env):
     for key, value in env.items():
         monkeypatch.setenv(key, value)
+    importlib.reload(importlib.import_module("config.settings.base"))
     return importlib.reload(importlib.import_module(module))
 
 
@@ -30,7 +32,8 @@ def test_prod_settings_load(monkeypatch):
 
 def test_prod_requires_secret_key(monkeypatch):
     monkeypatch.delenv("DJANGO_SECRET_KEY", raising=False)
-    with pytest.raises(Exception, match="DJANGO_SECRET_KEY"):
+    importlib.reload(importlib.import_module("config.settings.base"))
+    with pytest.raises(ImproperlyConfigured, match="DJANGO_SECRET_KEY"):
         importlib.reload(importlib.import_module("config.settings.prod"))
 
 
