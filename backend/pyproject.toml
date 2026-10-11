@@ -1,0 +1,25 @@
+[project]
+name = "trendpilot-api"
+version = "0.1.0"
+description = "TrendPilot AI backend API"
+requires-python = ">=3.11"
+authors = [{ name = "Maryam Mahmoudi", email = "mahmoodi.maryam1993@gmail.com" }]
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "DJ"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra"
