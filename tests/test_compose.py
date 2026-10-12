@@ -62,3 +62,9 @@ def test_backend_dockerfile_uses_non_root_user():
     text = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
     assert "slim" in text
     assert "USER " in text and "USER root" not in text
+
+
+def test_web_healthcheck_targets_ipv4_loopback():
+    # nginx listens on IPv4 only; "localhost" can resolve to ::1 and fail.
+    test = SERVICES["web"]["healthcheck"]["test"]
+    assert "http://127.0.0.1/" in test
