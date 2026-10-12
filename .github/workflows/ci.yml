@@ -29,7 +29,6 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
-      DJANGO_SETTINGS_MODULE: config.settings.test
       POSTGRES_DB: trendpilot
       POSTGRES_USER: trendpilot
       POSTGRES_PASSWORD: ci-password
