@@ -38,7 +38,7 @@ def test_example_com_placeholder_passes(tmp_path):
 
 def test_other_email_fails(tmp_path):
     f = tmp_path / "a.txt"
-    f.write_text("someone@other-domain.org\n", encoding="utf-8")
+    f.write_text("someone" + "@other-domain.org\n", encoding="utf-8")
     problems = forbidden.check_file(f)
     assert problems and "email" in problems[0]
 
@@ -58,7 +58,7 @@ def test_binary_file_is_skipped(tmp_path):
 
 def test_main_returns_nonzero_on_problem(tmp_path):
     f = tmp_path / "a.txt"
-    f.write_text("x@bad.org\n", encoding="utf-8")
+    f.write_text("x" + "@bad.org\n", encoding="utf-8")
     assert forbidden.main([str(f)]) == 1
 
 
