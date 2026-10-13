@@ -6,6 +6,11 @@ from .dev import *  # noqa: F403
 
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_RESULT_BACKEND = "cache+memory://"
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+REST_FRAMEWORK = {  # noqa: F405
+    **REST_FRAMEWORK,  # noqa: F405
+    "DEFAULT_THROTTLE_RATES": {"login": "5/min", "register": "3/min"},
+}
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 if not os.environ.get("POSTGRES_HOST"):
