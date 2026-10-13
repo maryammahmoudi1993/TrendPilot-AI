@@ -47,3 +47,14 @@ Without Docker, drop and recreate the PostgreSQL database, then run
 Every error response is `{"error": {"code", "message", "details?"}}`. Validation
 errors put the per-field messages in `details`; throttled requests (`429`) carry
 `details.retry_after` in seconds.
+
+## Audit log and API docs
+
+- Security-relevant actions write an append-only `AuditEvent` in the same transaction
+  as the action: login, logout, password change, workspace create/rename/delete and
+  every membership change (add, role change, remove, leave). Refused changes write
+  nothing. Owners read their workspace's log at `GET /api/workspaces/{id}/audit/`
+  (filter with `?action=member.add`); account events have no workspace and are not
+  shown there. Deleting a workspace detaches its events (the deletion event keeps the
+  workspace id and name in its metadata).
+- Interactive API docs: `/api/docs/` (Swagger UI); schema: `/api/schema/`.
