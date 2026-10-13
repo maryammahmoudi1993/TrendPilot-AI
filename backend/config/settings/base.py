@@ -29,10 +29,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "apps.accounts",
     "apps.workspaces",
+    "apps.audit",
     "apps.core",
 ]
 
@@ -112,6 +114,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
@@ -120,6 +123,19 @@ REST_FRAMEWORK = {
         "login": os.environ.get("THROTTLE_LOGIN_RATE", "10/min"),
         "register": os.environ.get("THROTTLE_REGISTER_RATE", "5/hour"),
     },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "TrendPilot AI API",
+    "DESCRIPTION": (
+        "Forecasting and anomaly detection for small businesses. Authenticate with "
+        "`POST /api/auth/login/` and send `Authorization: Bearer <access>`. Errors share the "
+        'shape `{"error": {"code", "message", "details?"}}`.'
+    ),
+    "VERSION": APP_VERSION,
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 
 SIMPLE_JWT = {
