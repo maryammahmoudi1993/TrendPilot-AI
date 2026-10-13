@@ -40,3 +40,27 @@ def client_for():
         return client
 
     return factory
+
+
+@pytest.fixture
+def two_workspaces(make_user):
+    """Two workspaces; in each, one user per role (plus an outsider with no membership).
+
+    Returns a dict ``{"a": {...}, "b": {...}, "outsider": user}`` where each workspace
+    entry holds ``workspace`` and the users keyed ``owner``, ``analyst``, ``viewer``.
+    """
+    from apps.workspaces.models import Membership
+    from apps.workspaces.services import create_workspace
+
+    result = {}
+    for key in ("a", "b"):
+        owner = make_user(f"{key}-owner")
+        workspace = create_workspace(user=owner, name=f"Workspace {key.upper()}")
+        entry = {"workspace": workspace, "owner": owner}
+        for role in ("analyst", "viewer"):
+            user = make_user(f"{key}-{role}")
+            Membership.objects.create(user=user, workspace=workspace, role=role)
+            entry[role] = user
+        result[key] = entry
+    result["outsider"] = make_user("outsider")
+    return result
