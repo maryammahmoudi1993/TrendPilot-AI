@@ -3,6 +3,8 @@ import logging
 import redis
 from django.conf import settings
 from django.db import connection
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -32,6 +34,19 @@ def check_redis() -> str:
         return "error"
 
 
+HealthSerializer = inline_serializer(
+    "Health",
+    {
+        "status": serializers.CharField(),
+        "service": serializers.CharField(),
+        "version": serializers.CharField(),
+        "database": serializers.CharField(help_text="ok or error"),
+        "redis": serializers.CharField(help_text="ok or error"),
+    },
+)
+
+
+@extend_schema(tags=["health"], summary="Liveness and dependency check", responses=HealthSerializer)
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([])
