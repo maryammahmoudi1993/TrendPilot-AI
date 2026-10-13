@@ -1,5 +1,7 @@
 from .base import *  # noqa: F403
 
+DEV_SECRET_KEY = "dev-insecure-secret-key-do-not-use-outside-local-development"
+
 DEBUG = True
-SECRET_KEY = SECRET_KEY or "dev-insecure-secret-key"  # noqa: F405
+SECRET_KEY = SECRET_KEY or DEV_SECRET_KEY  # noqa: F405
 ALLOWED_HOSTS = ["*"]
