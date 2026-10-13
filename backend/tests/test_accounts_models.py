@@ -4,15 +4,10 @@ import pytest
 from django.contrib.auth import authenticate, get_user_model
 from django.db import IntegrityError, transaction
 
+from tests.helpers import DOMAIN, addr
+
 User = get_user_model()
 pytestmark = pytest.mark.django_db
-
-# Fake addresses are built from fragments so the repository email hook ignores them.
-DOMAIN = "example" + ".com"
-
-
-def addr(local: str) -> str:
-    return f"{local}@{DOMAIN}"
 
 
 def test_auth_user_model_is_accounts_user():
