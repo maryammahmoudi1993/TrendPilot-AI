@@ -47,3 +47,15 @@ def test_logging_uses_json_formatter():
 
     formatter = settings.LOGGING["formatters"]["json"]
     assert "JsonFormatter" in formatter["()"]
+
+
+@pytest.mark.parametrize("module", ["config.settings.dev", "config.settings.prod"])
+def test_probe_app_is_never_installed_outside_tests(monkeypatch, module):
+    mod = _load(
+        module,
+        monkeypatch,
+        DJANGO_SECRET_KEY="a-key",
+        DJANGO_ALLOWED_HOSTS="api.example.com",
+    )
+    assert "tests.probe_app" not in mod.INSTALLED_APPS
+    assert mod.ROOT_URLCONF == "config.urls"
