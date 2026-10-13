@@ -15,3 +15,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 if not os.environ.get("POSTGRES_HOST"):
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
+
+# Test-only app and routes used to prove workspace scoping; absent from dev/prod settings.
+INSTALLED_APPS = [*INSTALLED_APPS, "tests.probe_app"]  # noqa: F405
+ROOT_URLCONF = "tests.urls"
