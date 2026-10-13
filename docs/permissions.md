@@ -73,3 +73,17 @@ Endpoints under `/api/workspaces/{id}/members/`:
 - Ownership transfer: promote another member to Owner, then demote yourself (or leave).
 - Membership changes take a row lock on the workspace inside a transaction, so two
   owners removing each other at the same moment cannot leave the workspace ownerless.
+
+## Isolation suite (required for every new workspace-scoped model)
+
+`backend/tests/isolation.py` holds a registry of workspace-scoped resources and
+`backend/tests/test_isolation_suite.py` runs, for each of them, the same checks over the
+`two_workspaces` fixture (two workspaces, an Owner, an Analyst and a Viewer in each,
+plus an outsider): 401 for anonymous callers, the role matrix (403 and unchanged data
+when refused), 404 for non-members, 404 for another workspace's object id addressed
+through your own workspace (also when you are a member of both), and lists that never
+contain other workspaces' rows. A meta-test fails if a model with a `workspace`
+foreign key is not registered.
+
+To add a model: write an `IsolatedResource` (list URL, object factory, supported
+operations mapped to matrix actions, payloads) and `register()` it.
