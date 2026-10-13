@@ -13,11 +13,13 @@ The matrix below is enforced in code by `apps/workspaces/matrix.py`
 | edit_workspace | yes | no | no |
 | manage_members | yes | no | no |
 | delete_workspace | yes | no | no |
+| view_audit | yes | no | no |
 
 - `view`, `create`, `edit`, `delete` apply to data inside a workspace (datasets,
   models, forecasts, ...). "Upload" is a `create`.
 - `edit_workspace` is renaming the workspace; `manage_members` is adding, changing the
-  role of and removing members (any member may list members and leave); `delete_workspace` deletes it.
+  role of and removing members (any member may list members and leave); `delete_workspace` deletes it;
+  `view_audit` reads the workspace audit log (`/api/workspaces/{id}/audit/`).
 
 ## Non-members get 404, members without the role get 403
 

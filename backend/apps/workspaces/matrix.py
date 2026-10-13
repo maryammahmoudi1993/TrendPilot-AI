@@ -13,6 +13,7 @@ class Action(StrEnum):
     EDIT_WORKSPACE = "edit_workspace"
     MANAGE_MEMBERS = "manage_members"
     DELETE_WORKSPACE = "delete_workspace"
+    VIEW_AUDIT = "view_audit"
 
 
 ALL_ROLES = frozenset(Role.values)
@@ -27,6 +28,7 @@ PERMISSION_MATRIX: dict[Action, frozenset[str]] = {
     Action.EDIT_WORKSPACE: OWNER_ONLY,
     Action.MANAGE_MEMBERS: OWNER_ONLY,
     Action.DELETE_WORKSPACE: OWNER_ONLY,
+    Action.VIEW_AUDIT: OWNER_ONLY,
 }
 
 
