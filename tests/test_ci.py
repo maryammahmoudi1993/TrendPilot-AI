@@ -48,3 +48,17 @@ def test_compose_job_validates_config():
 def test_readme_has_ci_badge():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "actions/workflows/ci.yml/badge.svg" in readme
+
+
+def test_runners_are_pinned_to_a_fixed_ubuntu_release():
+    for name, job in JOBS.items():
+        assert job["runs-on"] == "ubuntu-24.04", name
+
+
+def test_official_actions_use_current_majors():
+    minimum = {"actions/checkout": 7, "actions/setup-python": 7, "actions/setup-node": 7}
+    for job in JOBS.values():
+        for step in job["steps"]:
+            action, _, ref = step.get("uses", "").partition("@")
+            if action in minimum:
+                assert int(ref.lstrip("v")) >= minimum[action], step["uses"]
