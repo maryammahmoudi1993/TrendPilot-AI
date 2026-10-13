@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 
+from .querysets import WorkspaceScopedManager
+
 
 class Role(models.TextChoices):
     OWNER = "owner", "Owner"
@@ -53,6 +55,8 @@ class Membership(models.Model):
     role = models.CharField(max_length=10, choices=Role.choices)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = WorkspaceScopedManager()
 
     class Meta:
         ordering = ["created_at"]

@@ -16,6 +16,16 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import Membership, Workspace
 from .permissions import WorkspaceRolePermission
+from .querysets import WorkspaceScopedManager, WorkspaceScopedQuerySet
+
+__all__ = [
+    "WORKSPACE_ID_PATTERN",
+    "WorkspaceScopedManager",
+    "WorkspaceScopedModel",
+    "WorkspaceScopedQuerySet",
+    "WorkspaceScopedViewSetMixin",
+    "workspace_prefix",
+]
 
 WORKSPACE_ID_PATTERN = (
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -25,20 +35,6 @@ WORKSPACE_ID_PATTERN = (
 def workspace_prefix(name: str) -> str:
     """Router prefix: ``workspaces/{workspace_id}/<name>``."""
     return rf"workspaces/(?P<workspace_id>{WORKSPACE_ID_PATTERN})/{name}"
-
-
-class WorkspaceScopedQuerySet(models.QuerySet):
-    def for_user(self, user):
-        """Rows in workspaces where ``user`` is a member."""
-        if user is None or not user.is_authenticated:
-            return self.none()
-        return self.filter(workspace__memberships__user=user)
-
-    def for_workspace(self, workspace):
-        return self.filter(workspace=workspace)
-
-
-WorkspaceScopedManager = models.Manager.from_queryset(WorkspaceScopedQuerySet)
 
 
 class WorkspaceScopedModel(models.Model):
