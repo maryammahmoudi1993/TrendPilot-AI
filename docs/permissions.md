@@ -53,3 +53,21 @@ unmapped unsafe action is denied.
 
 Serializers must never accept a client-supplied `workspace` or foreign keys to
 objects in another workspace without checking them against the caller's workspace.
+
+## Member management rules
+
+Endpoints under `/api/workspaces/{id}/members/`:
+
+| Endpoint | Who |
+| --- | --- |
+| `GET members/` | any member |
+| `POST members/` (add by email of an existing, active user, with a role) | Owner |
+| `PATCH members/{membership_id}/` (change role) | Owner |
+| `DELETE members/{membership_id}/` (remove) | Owner |
+| `POST members/leave/` | any member |
+
+- A workspace always keeps at least one Owner: demoting, removing or leaving as the
+  last Owner returns `409` with error code `last_owner`.
+- Ownership transfer: promote another member to Owner, then demote yourself (or leave).
+- Membership changes take a row lock on the workspace inside a transaction, so two
+  owners removing each other at the same moment cannot leave the workspace ownerless.
