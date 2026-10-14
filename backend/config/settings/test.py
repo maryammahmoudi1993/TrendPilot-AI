@@ -4,6 +4,7 @@ import os
 
 from .dev import *  # noqa: F403
 
+MEDIA_ROOT = str(BASE_DIR / ".pytest_tmp" / "media")  # noqa: F405
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_RESULT_BACKEND = "cache+memory://"
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
