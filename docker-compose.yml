@@ -10,6 +10,7 @@ x-backend-env: &backend-env
   POSTGRES_HOST: db
   POSTGRES_PORT: "5432"
   REDIS_URL: redis://redis:6379/0
+  MEDIA_ROOT: /app/media
 
 x-backend-deps: &backend-deps
   db:
@@ -51,6 +52,8 @@ services:
     environment: *backend-env
     ports:
       - "8000:8000"
+    volumes:
+      - media_data:/app/media
     depends_on: *backend-deps
     healthcheck:
       test:
@@ -68,6 +71,8 @@ services:
       context: ./backend
     command: celery -A config worker --loglevel=INFO
     environment: *backend-env
+    volumes:
+      - media_data:/app/media
     depends_on: *backend-deps
     healthcheck:
       test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME"]
@@ -93,3 +98,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  media_data:

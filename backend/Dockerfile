@@ -12,6 +12,7 @@ RUN pip install -r requirements/${REQUIREMENTS}
 
 RUN useradd --create-home --uid 10001 appuser
 COPY --chown=appuser:appuser . .
+RUN mkdir -p /app/media && chown appuser:appuser /app/media
 USER appuser
 
 EXPOSE 8000

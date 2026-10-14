@@ -37,7 +37,8 @@ def call(client, res, op, ws, obj, ctx):
     if op == "list":
         return client.get(base)
     if op == "create":
-        return client.post(base, res.create_payload(ctx), format="json")
+        fmt = "multipart" if res.extra.get("multipart") else "json"
+        return client.post(base, res.create_payload(ctx), format=fmt)
     detail = f"{base}{obj.pk}/"
     if op == "retrieve":
         return client.get(detail)
