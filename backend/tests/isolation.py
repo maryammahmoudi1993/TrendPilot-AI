@@ -16,11 +16,15 @@ this file). ``ctx`` is the ``two_workspaces`` fixture value::
     {"a": {"workspace", "owner", "analyst", "viewer"}, "b": {...}, "outsider": user}
 """
 
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+
 from apps.audit.models import AuditAction, AuditEvent
 from apps.audit.services import record
+from apps.datasets.models import Dataset
 from apps.workspaces.matrix import Action
 from apps.workspaces.models import Membership
 from tests.probe_app.models import Probe
@@ -39,7 +43,7 @@ class IsolatedResource:
     create_payload: Callable = lambda ctx: {}  # noqa: E731
     update_payload: Callable = lambda ctx: {}  # noqa: E731
     changed: tuple[str, object] | None = None  # (field, value) an allowed update must set
-    extra: dict = field(default_factory=dict)
+    extra: dict = field(default_factory=dict)  # {"multipart": True} for file-upload creates
 
     def __str__(self):
         return self.name
@@ -114,5 +118,28 @@ register(
         list_url=lambda ws: f"/api/workspaces/{ws.pk}/audit/",
         make=lambda ws, ctx: record(AuditAction.MEMBER_ADD, workspace=ws, actor=ctx["a"]["owner"]),
         ops={"list": Action.VIEW_AUDIT, "retrieve": Action.VIEW_AUDIT},
+    )
+)
+
+register(
+    IsolatedResource(
+        name="datasets",
+        model=Dataset,
+        list_url=lambda ws: f"/api/workspaces/{ws.pk}/datasets/",
+        make=lambda ws, ctx: Dataset.objects.create(
+            workspace=ws,
+            name="seed.csv",
+            original_filename="seed.csv",
+            size=10,
+            sha256=secrets.token_hex(32),
+        ),
+        ops={"list": Action.VIEW, "retrieve": Action.VIEW, "create": Action.CREATE},
+        create_payload=lambda ctx: {
+            "name": "new.csv",
+            "file": SimpleUploadedFile(
+                "new.csv", b"date,value\n2024-01-01,1\n", content_type="text/csv"
+            ),
+        },
+        extra={"multipart": True},
     )
 )
