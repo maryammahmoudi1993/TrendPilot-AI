@@ -31,12 +31,10 @@ def sniff_csv(raw: bytes) -> dict:
     except csv.Error as exc:
         raise CsvSniffError("Could not detect a comma, semicolon or tab delimiter.") from exc
 
+    # The Sniffer above only succeeds once it has seen at least one delimited line,
+    # so the reader always has a header row to give here.
     reader = csv.reader(io.StringIO(text), dialect)
-    try:
-        header = next(reader)
-    except StopIteration as exc:
-        raise CsvSniffError("The file has no header row.") from exc
-
+    header = next(reader)
     row_count = sum(1 for _ in reader)
     if row_count == 0:
         raise CsvSniffError("The file has a header but no data rows.")

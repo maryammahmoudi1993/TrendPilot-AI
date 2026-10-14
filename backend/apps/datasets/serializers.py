@@ -40,9 +40,7 @@ class DatasetUploadSerializer(serializers.ModelSerializer):
         if not value.name.lower().endswith(".csv"):
             raise serializers.ValidationError("Only .csv files are accepted.")
 
-        raw = value.read()
-        if not raw:
-            raise serializers.ValidationError("The file is empty.")
+        raw = value.read()  # DRF's FileField already rejects an empty upload before this runs
         if len(raw) > settings.DATASET_MAX_UPLOAD_BYTES:
             raise serializers.ValidationError(
                 f"The file exceeds the {settings.DATASET_MAX_UPLOAD_BYTES} byte limit."
