@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.workspaces",
     "apps.audit",
+    "apps.datasets",
     "apps.core",
 ]
 
@@ -98,6 +99,14 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "mahmoodi.maryam1993@gmail.com")
+
+# Uploaded datasets live here, never under a URL Django serves directly: reading them
+# back must always go through an authenticated, workspace-scoped endpoint.
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media"))
+MEDIA_URL = "media/"
+
+DATASET_MAX_UPLOAD_BYTES = int(os.environ.get("DATASET_MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
+DATASET_MAX_ROWS = int(os.environ.get("DATASET_MAX_ROWS", "500000"))
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 

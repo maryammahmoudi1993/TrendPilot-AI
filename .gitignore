@@ -36,3 +36,6 @@ docker-compose.override.yml
 Thumbs.db
 *.tsbuildinfo
 .pytest_tmp/
+
+# Uploaded dataset files (local dev storage; never committed)
+backend/media/
