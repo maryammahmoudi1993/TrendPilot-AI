@@ -3,6 +3,7 @@ import hashlib
 from django.conf import settings
 from rest_framework import serializers
 
+from .dates import DATE_ORDERS, validate_timezone
 from .models import Dataset
 from .services import upload_dataset
 from .validation import CsvSniffError, sniff_csv
@@ -80,3 +81,41 @@ class DatasetUploadSerializer(serializers.ModelSerializer):
             row_count=self._row_count,
             name=name,
         )
+
+
+class MappingSerializer(serializers.Serializer):
+    """Roles for the dataset's columns plus optional parsing hints."""
+
+    date = serializers.CharField(help_text="Column holding the timestamp.")
+    target = serializers.CharField(help_text="Numeric column to forecast.")
+    series_id = serializers.CharField(
+        required=False, allow_null=True, help_text="Optional column identifying each series."
+    )
+    regressors = serializers.ListField(
+        child=serializers.CharField(), required=False, help_text="Optional numeric columns."
+    )
+    date_order = serializers.ChoiceField(
+        choices=DATE_ORDERS,
+        required=False,
+        allow_null=True,
+        help_text="Resolve day-first ('dmy') vs month-first ('mdy') dates.",
+    )
+    timezone = serializers.CharField(
+        required=False,
+        allow_null=True,
+        help_text="IANA timezone for dates without a UTC offset, e.g. Europe/Berlin.",
+    )
+    decimal_separator = serializers.ChoiceField(
+        choices=[".", ","],
+        required=False,
+        allow_null=True,
+        help_text="Force the decimal mark when a number column is ambiguous.",
+    )
+
+    def validate_timezone(self, value):
+        if value is None:
+            return value
+        try:
+            return validate_timezone(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
