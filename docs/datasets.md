@@ -32,6 +32,7 @@ exists yet.
 | `datasets/` | GET | any member | List the workspace's datasets |
 | `datasets/` | POST (multipart) | Owner/Analyst | Upload a CSV (`file`, optional `name`) |
 | `datasets/{id}/` | GET | any member | Get one dataset |
+| `datasets/{id}/mapping/` | PUT, PATCH | Owner/Analyst | Set the column mapping (see below) |
 
 A non-member gets `404`; a Viewer gets `403` on upload. `Dataset` is registered
 in `backend/tests/isolation.py`.
@@ -44,6 +45,55 @@ UTF-8 (BOM-aware) text, use a comma, semicolon or tab delimiter
 (`apps/datasets/validation.py` sniffs it), have at least one data row under its
 header, and have no more than `DATASET_MAX_ROWS` rows (default 500,000). Any
 failure is a uniform `400` with the reason in `error.details.file`.
+
+## Column mapping
+
+`PUT` replaces the mapping and requires `date` and `target`; `PATCH` merges the
+given fields into the stored mapping. Fields:
+
+| Field | Meaning |
+| --- | --- |
+| `date` | Timestamp column (required) |
+| `target` | Numeric column to forecast (required) |
+| `series_id` | Optional column identifying each series |
+| `regressors` | Optional list of numeric columns |
+| `date_order` | Optional `dmy` or `mdy`, to settle a day/month ambiguity |
+| `timezone` | Optional IANA name for dates without a UTC offset |
+| `decimal_separator` | Optional `.` or `,`, to settle an ambiguous number column |
+
+Rules, all checked against the stored file (`apps/datasets/mapping.py`): every
+column must exist and appear once in the header, one column cannot hold two
+roles, the date column must parse, and the target and each regressor must be
+numeric. Problems are returned together as `400` with `error.code =
+invalid_mapping` and `error.details` keyed by role, each entry carrying its own
+`code`, `message` and, where relevant, counts and example values (for
+regressors, one entry per column name). Nothing is saved on a `400`.
+
+**Dates** (`dates.py`) are matched against a fixed list of `strptime` formats; a
+format is accepted only if it parses every value. If both day-first and
+month-first formats fit (`03/04/2024`), the column is reported as
+`ambiguous_date_order` instead of being guessed; a day above 12 elsewhere in
+the column settles it, otherwise supply `date_order`. A column that mixes
+formats is `mixed_date_formats`; other bad values give `unparseable_dates`
+(empty cells count as bad). Both report the number of bad values and the first
+five. Values with a UTC offset (`Z`, `+02:00`) are timezone-aware; naive values
+keep the supplied `timezone`. A column mixing aware and naive values is rejected.
+
+**Numbers** (`numbers.py`) accept thousand separators (`1,234.5`, `1.234,5`,
+`1 234,5`, `1'234.5`) and decimal commas. The decimal separator is decided per
+column; if the only evidence is ambiguous (`1,234`), `,` is read as a thousands
+separator and `parsing.<role>.ambiguous_separator` is `true` until
+`decimal_separator` is given. Empty cells and the tokens `NA`, `N/A`, `NaN`,
+`null`, `none`, `-`, `--` count as missing, not as failures. A target or
+regressor is accepted when at least `DATASET_MIN_NUMERIC_SHARE` (default 0.95) of
+its non-empty cells convert; the failed count and first five examples are stored
+under `column_mapping.parsing`.
+
+Saving a mapping resets the dataset to `uploaded`, clears `detected_frequency`
+and writes a `dataset.mapping` audit event with the roles before and after.
+The mapping is read synchronously from the stored file, so a very large file
+makes the request slower; a ragged CSV (rows with differing field counts) is
+already refused at upload.
 
 ## Storage
 

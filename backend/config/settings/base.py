@@ -107,6 +107,8 @@ MEDIA_URL = "media/"
 
 DATASET_MAX_UPLOAD_BYTES = int(os.environ.get("DATASET_MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 DATASET_MAX_ROWS = int(os.environ.get("DATASET_MAX_ROWS", "500000"))
+# Share of non-empty cells in a target/regressor column that must convert to numbers.
+DATASET_MIN_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_NUMERIC_SHARE", "0.95"))
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 

@@ -1,12 +1,15 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.core.schema import errors
+from apps.workspaces.matrix import Action
 from apps.workspaces.scoping import WorkspaceScopedViewSetMixin
 
 from .models import Dataset
-from .serializers import DatasetSerializer, DatasetUploadSerializer
+from .serializers import DatasetSerializer, DatasetUploadSerializer, MappingSerializer
+from .services import update_mapping
 
 
 @extend_schema_view(
@@ -31,10 +34,39 @@ class DatasetViewSet(
     viewsets.GenericViewSet,
 ):
     queryset = Dataset.objects.all()
-    http_method_names = ["get", "post", "head", "options"]
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
+    required_actions = {"mapping": Action.EDIT}
 
     def get_serializer_class(self):
-        return DatasetUploadSerializer if self.action == "create" else DatasetSerializer
+        if self.action == "create":
+            return DatasetUploadSerializer
+        if self.action == "mapping":
+            return MappingSerializer
+        return DatasetSerializer
+
+    @extend_schema(
+        methods=["PUT", "PATCH"],
+        summary="Set the dataset's column mapping (Owner/Analyst only)",
+        description=(
+            "PUT replaces the mapping; PATCH merges the given fields into the stored one. "
+            "Validates the date, target and regressor columns against the file. Resets the "
+            "dataset to 'uploaded' and clears derived results."
+        ),
+        request=MappingSerializer,
+        responses={200: DatasetSerializer, **errors(400, 403, 404, 409)},
+    )
+    @action(detail=True, methods=["put", "patch"], url_path="mapping")
+    def mapping(self, request, *args, **kwargs):
+        partial = request.method == "PATCH"
+        serializer = MappingSerializer(data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        dataset = update_mapping(
+            dataset=self.get_object(),
+            actor=request.user,
+            data=serializer.validated_data,
+            partial=partial,
+        )
+        return Response(DatasetSerializer(dataset).data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

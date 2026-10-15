@@ -4,7 +4,8 @@ Every error response has the shape::
 
     {"error": {"code": "<machine_code>", "message": "<text>", "details": {...}}}
 
-``details`` is present for validation errors (field -> messages) and throttling.
+``details`` is present for validation errors (field -> messages), throttling and
+exceptions that carry a ``details`` attribute (e.g. dataset mapping problems).
 """
 
 from rest_framework import exceptions
@@ -35,6 +36,8 @@ def api_exception_handler(exc, context):
     elif isinstance(exc, exceptions.APIException):
         message, code = _message_and_code(exc)
         error = {"code": code, "message": message}
+        if getattr(exc, "details", None):
+            error["details"] = exc.details
         if isinstance(exc, exceptions.Throttled) and exc.wait is not None:
             error["details"] = {"retry_after": int(exc.wait)}
     else:  # Http404 / PermissionDenied converted by DRF

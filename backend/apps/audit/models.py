@@ -18,6 +18,7 @@ class AuditAction(models.TextChoices):
     MEMBER_ROLE_CHANGE = "member.role_change", "Member role changed"
     MEMBER_REMOVE = "member.remove", "Member removed"
     MEMBER_LEAVE = "member.leave", "Member left"
+    DATASET_MAPPING = "dataset.mapping", "Dataset column mapping saved"
 
 
 class AuditEvent(models.Model):
