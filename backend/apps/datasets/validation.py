@@ -11,6 +11,14 @@ class CsvSniffError(Exception):
     """Raised with a user-facing message when the uploaded bytes aren't a usable CSV."""
 
 
+def detect_dialect(text: str):
+    """Sniff the delimiter of decoded CSV text (comma, semicolon or tab only)."""
+    try:
+        return csv.Sniffer().sniff(text[:MAX_SNIFF_BYTES], delimiters=ALLOWED_DELIMITERS)
+    except csv.Error as exc:
+        raise CsvSniffError("Could not detect a comma, semicolon or tab delimiter.") from exc
+
+
 def sniff_csv(raw: bytes) -> dict:
     """Validate ``raw`` as CSV text and return ``{"delimiter", "header", "row_count"}``.
 
@@ -25,11 +33,7 @@ def sniff_csv(raw: bytes) -> dict:
     except UnicodeDecodeError as exc:
         raise CsvSniffError("The file is not valid UTF-8 text.") from exc
 
-    sample = text[:MAX_SNIFF_BYTES]
-    try:
-        dialect = csv.Sniffer().sniff(sample, delimiters=ALLOWED_DELIMITERS)
-    except csv.Error as exc:
-        raise CsvSniffError("Could not detect a comma, semicolon or tab delimiter.") from exc
+    dialect = detect_dialect(text)
 
     # The Sniffer above only succeeds once it has seen at least one delimited line,
     # so the reader always has a header row to give here.
