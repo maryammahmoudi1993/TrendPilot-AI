@@ -109,6 +109,9 @@ DATASET_MAX_UPLOAD_BYTES = int(os.environ.get("DATASET_MAX_UPLOAD_BYTES", str(20
 DATASET_MAX_ROWS = int(os.environ.get("DATASET_MAX_ROWS", "500000"))
 # Share of non-empty cells in a target/regressor column that must convert to numbers.
 DATASET_MIN_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_NUMERIC_SHARE", "0.95"))
+# Stricter bar for the target: silently losing the values we forecast is worse than for a
+# regressor. Cells that fail conversion are kept as missing, never dropped.
+DATASET_MIN_TARGET_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_TARGET_NUMERIC_SHARE", "0.99"))
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 

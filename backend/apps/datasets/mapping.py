@@ -88,7 +88,11 @@ def _structure_problems(data: dict, header: list[str]) -> dict:
 
 
 def _numeric_problem(name: str, result, kind: str) -> dict | None:
-    minimum = settings.DATASET_MIN_NUMERIC_SHARE
+    minimum = (
+        settings.DATASET_MIN_TARGET_NUMERIC_SHARE
+        if kind == "target"
+        else settings.DATASET_MIN_NUMERIC_SHARE
+    )
     if result.non_empty == 0:
         return _problem(
             f"{kind}_not_numeric", f"Column '{name}' has no numeric values.", column=name
