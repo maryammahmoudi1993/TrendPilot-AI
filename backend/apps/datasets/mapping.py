@@ -14,6 +14,7 @@ from rest_framework.exceptions import APIException
 
 from .columns import read_columns
 from .dates import detect_date_column
+from .frequency import detect_frequency, to_timestamps
 from .numbers import parse_numeric_column
 
 ROLE_KEYS = ("date", "target", "series_id", "regressors")
@@ -154,6 +155,10 @@ def resolve_mapping(dataset, data: dict) -> dict:
 
     if problems:
         raise MappingError(problems)
+
+    timestamps = to_timestamps(columns[data["date"]], date_result.format, date_result.aware)
+    series_ids = columns[data["series_id"]] if data.get("series_id") else None
+    parsing["frequency"] = detect_frequency(timestamps, series_ids).as_dict()
 
     return {
         "date": data["date"],

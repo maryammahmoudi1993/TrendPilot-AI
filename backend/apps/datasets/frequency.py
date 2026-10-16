@@ -25,6 +25,8 @@ MAX_SERIES_LISTED = 10
 # Share of steps that must equal the base step, and that must be multiples of it.
 MIN_BASE_SHARE = 0.5
 MIN_MULTIPLE_SHARE = 0.9
+# Share of the periods between first and last timestamp that must actually be present.
+MIN_COVERAGE = 0.5
 CALENDAR_STEPS = {1: "monthly", 3: "quarterly", 12: "yearly"}
 
 UNKNOWN = "unknown"
@@ -118,6 +120,16 @@ def _gaps_from(uniq, periods: np.ndarray) -> tuple[int, list[dict]]:
     return missing, gaps
 
 
+def _sparse(series: _Series) -> bool:
+    return series.observations / (series.observations + series.missing) < MIN_COVERAGE
+
+
+def _irregular_if_sparse(series: _Series) -> _Series:
+    if _sparse(series):
+        series.label, series.missing, series.gaps = IRREGULAR, 0, []
+    return series
+
+
 def _analyse(timestamps: pd.Series) -> _Series:
     uniq = pd.DatetimeIndex(timestamps.drop_duplicates().sort_values())
     result = _Series(UNKNOWN, observations=len(uniq), duplicates=len(timestamps) - len(uniq))
@@ -131,7 +143,7 @@ def _analyse(timestamps: pd.Series) -> _Series:
         result.label = CALENDAR_STEPS[calendar]
         multiple = (diffs % calendar == 0) & (diffs > 0)
         result.missing, result.gaps = _gaps_from(uniq, np.where(multiple, periods, 1))
-        return result
+        return _irregular_if_sparse(result)
 
     seconds = np.rint((uniq[1:] - uniq[:-1]).total_seconds().to_numpy()).astype(np.int64)
     base, share = _mode(seconds)
@@ -141,7 +153,12 @@ def _analyse(timestamps: pd.Series) -> _Series:
     result.label = _fixed_label(int(base))
     multiple = seconds % base == 0
     result.missing, result.gaps = _gaps_from(uniq, np.where(multiple, seconds // base, 1))
-    return result
+    return _irregular_if_sparse(result)
+
+
+def to_timestamps(cells, fmt: str, aware: bool) -> pd.Series:
+    """Parse a date column with the format ``dates.detect_date_column`` accepted."""
+    return pd.to_datetime(pd.Series([c.strip() for c in cells]), format=fmt, utc=aware or None)
 
 
 def detect_frequency(timestamps, series_ids=None) -> FrequencyResult:
