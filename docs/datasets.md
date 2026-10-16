@@ -15,7 +15,7 @@ and ready for later phases (column mapping, cleaning, forecasting).
 | `size`, `sha256` | Computed server-side from the uploaded bytes. |
 | `status` | `uploaded` / `validated` / `failed` (later phases add the validated/failed transition). |
 | `row_count` | Data rows, excluding the header. |
-| `column_mapping`, `detected_frequency` | Set in later steps (column mapping, frequency detection). |
+| `column_mapping`, `detected_frequency` | Set by the mapping endpoint (column roles, parse results, frequency). |
 
 `sha256` is unique per workspace: uploading the same file twice to the same
 workspace is rejected; the same content in a different workspace is fine.
@@ -84,12 +84,46 @@ keep the supplied `timezone`. A column mixing aware and naive values is rejected
 column; if the only evidence is ambiguous (`1,234`), `,` is read as a thousands
 separator and `parsing.<role>.ambiguous_separator` is `true` until
 `decimal_separator` is given. Empty cells and the tokens `NA`, `N/A`, `NaN`,
-`null`, `none`, `-`, `--` count as missing, not as failures. A target or
-regressor is accepted when at least `DATASET_MIN_NUMERIC_SHARE` (default 0.95) of
-its non-empty cells convert; the failed count and first five examples are stored
-under `column_mapping.parsing`.
+`null`, `none`, `-`, `--` count as missing, not as failures.
 
-Saving a mapping resets the dataset to `uploaded`, clears `detected_frequency`
+Two thresholds apply to the share of non-empty cells that must convert:
+
+| Column | Setting | Default |
+| --- | --- | --- |
+| target | `DATASET_MIN_TARGET_NUMERIC_SHARE` | 0.99 |
+| each regressor | `DATASET_MIN_NUMERIC_SHARE` | 0.95 |
+
+The target bar is stricter because losing the values being forecast is worse than
+losing a regressor value. Cells that fail conversion are **kept as missing**, not
+dropped: `column_mapping.parsing.<role>` stores `converted`, `empty`, `failed`,
+`missing` (empty + failed), the first five `failed_examples` and the first twenty
+`failed_lines` (file line numbers, the header is line 1). The quality report (a later
+step) lists them as a warning with the count so cleaning can decide what to do.
+
+*Known limitation:* currency symbols (`$12.50`, `12 EUR`) and percent signs
+(`45%`) are not parsed; such cells count as failures. Strip them before upload.
+
+**Frequency** (`frequency.py`, pandas) is detected every time a mapping is saved, from
+the parsed date column, and stored in `column_mapping.parsing.frequency` and
+`Dataset.detected_frequency`. Each `series_id` value is judged on its own distinct,
+sorted timestamps:
+
+| Result | Meaning |
+| --- | --- |
+| `1min`, `15min`, `hourly`, `6h`, `daily`, `weekly`, `14D`, ... | A fixed step; most gaps equal it and the rest are multiples |
+| `monthly`, `quarterly`, `yearly` | Calendar steps on a shared day of month (or month ends) |
+| `irregular` | The spacing fits neither rule, or fewer than half the periods are present |
+| `mixed` | The series disagree (`by_series` lists the first ten) |
+| `unknown` | Fewer than three distinct timestamps in every series |
+
+The stored object also holds `regular`, `consistent`, `series_count`, `observations`,
+`duplicates` (repeated timestamps within a series, never used as a period),
+`missing_periods` (multiples of the step that are absent) and the first five `gaps`
+(`after`, `missing`, plus `series` when there are several). Aware timestamps are
+compared in UTC, naive ones as wall-clock time. An irregular or mixed result does not
+reject the mapping; the quality report and cleaning decide what to do.
+
+Saving a mapping resets the dataset to `uploaded`, recomputes `detected_frequency`
 and writes a `dataset.mapping` audit event with the roles before and after.
 The mapping is read synchronously from the stored file, so a very large file
 makes the request slower; a ragged CSV (rows with differing field counts) is

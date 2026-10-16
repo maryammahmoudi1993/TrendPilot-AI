@@ -7,3 +7,4 @@ redis>=5.0,<7
 python-json-logger>=3.0,<4
 gunicorn>=22.0
 drf-spectacular>=0.28,<0.30
+pandas==2.3.3

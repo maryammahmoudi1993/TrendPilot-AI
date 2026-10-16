@@ -14,6 +14,7 @@ from rest_framework.exceptions import APIException
 
 from .columns import read_columns
 from .dates import detect_date_column
+from .frequency import detect_frequency, to_timestamps
 from .numbers import parse_numeric_column
 
 ROLE_KEYS = ("date", "target", "series_id", "regressors")
@@ -88,7 +89,11 @@ def _structure_problems(data: dict, header: list[str]) -> dict:
 
 
 def _numeric_problem(name: str, result, kind: str) -> dict | None:
-    minimum = settings.DATASET_MIN_NUMERIC_SHARE
+    minimum = (
+        settings.DATASET_MIN_TARGET_NUMERIC_SHARE
+        if kind == "target"
+        else settings.DATASET_MIN_NUMERIC_SHARE
+    )
     if result.non_empty == 0:
         return _problem(
             f"{kind}_not_numeric", f"Column '{name}' has no numeric values.", column=name
@@ -150,6 +155,10 @@ def resolve_mapping(dataset, data: dict) -> dict:
 
     if problems:
         raise MappingError(problems)
+
+    timestamps = to_timestamps(columns[data["date"]], date_result.format, date_result.aware)
+    series_ids = columns[data["series_id"]] if data.get("series_id") else None
+    parsing["frequency"] = detect_frequency(timestamps, series_ids).as_dict()
 
     return {
         "date": data["date"],

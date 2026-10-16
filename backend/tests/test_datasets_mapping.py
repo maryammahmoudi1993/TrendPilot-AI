@@ -1,4 +1,5 @@
 import csv
+from datetime import date, timedelta
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -173,13 +174,73 @@ def test_ambiguous_decimal_separator_is_reported_and_overridable(ctx):
     assert again.json()["column_mapping"]["parsing"]["target"]["ambiguous_separator"] is False
 
 
-def test_a_few_unconvertible_target_cells_are_reported_not_fatal(ctx):
-    rows = "".join(f"2024-01-{d:02d},{d}\n" for d in range(1, 29))
-    rows += "2024-02-01,n/a?\n" + "".join(f"2024-02-{d:02d},{d}\n" for d in range(2, 12))
-    _, response = put_mapping(ctx, "date,sales\n" + rows, {"date": "date", "target": "sales"})
-    assert response.status_code == 200, response.content  # 1 failure in 39: above the 95% bar
+def _target_csv(total: int, bad_rows: int) -> str:
+    """``total`` daily rows; the first ``bad_rows`` have an unconvertible target."""
+    rows = []
+    for i in range(total):
+        day = date(2024, 1, 1) + timedelta(days=i)
+        rows.append(f"{day.isoformat()},{'n/a?' if i < bad_rows else i}\n")
+    return "date,sales\n" + "".join(rows)
+
+
+def test_target_just_above_the_target_threshold_is_accepted(ctx):
+    # 1 failure in 100 non-empty cells = 99%, exactly the default target bar.
+    _, response = put_mapping(ctx, _target_csv(100, 1), {"date": "date", "target": "sales"})
+    assert response.status_code == 200, response.content
     target = response.json()["column_mapping"]["parsing"]["target"]
     assert target["failed"] == 1 and target["failed_examples"] == ["n/a?"]
+
+
+def _two_column_csv(total: int, bad_in: str) -> str:
+    """Daily ``sales`` and ``temp`` columns; ``bad_in`` gets one unconvertible cell."""
+    rows = []
+    for i in range(total):
+        day = (date(2024, 1, 1) + timedelta(days=i)).isoformat()
+        sales = "n/a?" if bad_in == "sales" and i == 0 else i
+        temp = "n/a?" if bad_in == "temp" and i == 0 else i
+        rows.append(f"{day},{sales},{temp}\n")
+    return "date,sales,temp\n" + "".join(rows)
+
+
+def test_98_percent_is_too_lossy_for_the_target(ctx):
+    # 1 failure in 50 non-empty cells = 98%, below the 99% target bar.
+    _, response = put_mapping(
+        ctx, _two_column_csv(50, "sales"), {"date": "date", "target": "sales"}
+    )
+    assert problems(response)["target"]["code"] == "target_not_numeric"
+
+
+def test_98_percent_is_fine_for_a_regressor(ctx):
+    body = {"date": "date", "target": "sales", "regressors": ["temp"]}
+    _, response = put_mapping(ctx, _two_column_csv(50, "temp"), body)
+    assert response.status_code == 200, response.content
+    assert response.json()["column_mapping"]["parsing"]["regressors"]["temp"]["failed"] == 1
+
+
+def test_target_threshold_is_its_own_setting(ctx, settings):
+    settings.DATASET_MIN_TARGET_NUMERIC_SHARE = 0.9
+    _, response = put_mapping(ctx, _target_csv(50, 1), {"date": "date", "target": "sales"})
+    assert response.status_code == 200, response.content
+    settings.DATASET_MIN_TARGET_NUMERIC_SHARE = 1.0
+    _, response = put_mapping(ctx, _target_csv(100, 1), {"date": "date", "target": "sales"})
+    assert problems(response)["target"]["code"] == "target_not_numeric"
+
+
+def test_regressor_threshold_is_unchanged_and_independent(ctx, settings):
+    settings.DATASET_MIN_NUMERIC_SHARE = 1.0
+    body = {"date": "date", "target": "sales", "regressors": ["temp"]}
+    _, response = put_mapping(ctx, _two_column_csv(100, "temp"), body)
+    assert problems(response)["regressors"]["temp"]["code"] == "regressor_not_numeric"
+
+
+def test_failed_cells_stay_in_the_parse_result_as_missing_with_their_line_numbers(ctx):
+    csv_text = _target_csv(300, 2)
+    _, response = put_mapping(ctx, csv_text, {"date": "date", "target": "sales"})
+    target = response.json()["column_mapping"]["parsing"]["target"]
+    assert target["failed"] == 2 and target["empty"] == 0
+    assert target["missing"] == 2  # failed cells are kept as missing, never dropped
+    assert target["failed_lines"] == [2, 3]  # file line numbers, header is line 1
+    assert response.json()["row_count"] == 300
 
 
 def test_non_numeric_target_is_rejected(ctx):
@@ -235,7 +296,56 @@ def test_changing_the_mapping_resets_derived_state(ctx):
     )
     ctx["owner"].patch(mapping_url(ctx["ws"], dataset_id), {"target": "temp"}, format="json")
     dataset = Dataset.objects.get(pk=dataset_id)
-    assert dataset.status == DatasetStatus.UPLOADED and dataset.detected_frequency == ""
+    assert dataset.status == DatasetStatus.UPLOADED
+    assert dataset.detected_frequency == "daily"  # recomputed from the new mapping
+
+
+def daily_csv(days=30, skip=(), dup_last=False):
+    rows = [
+        f"{(date(2024, 1, 1) + timedelta(days=i)).isoformat()},{i}\n"
+        for i in range(days)
+        if i not in skip
+    ]
+    if dup_last:
+        rows.append(rows[-1])
+    return "date,sales\n" + "".join(rows)
+
+
+def test_frequency_is_detected_and_stored_with_the_mapping(ctx):
+    dataset_id, response = put_mapping(
+        ctx, daily_csv(30, skip={4, 5}, dup_last=True), {"date": "date", "target": "sales"}
+    )
+    body = response.json()
+    assert body["detected_frequency"] == "daily"
+    frequency = body["column_mapping"]["parsing"]["frequency"]
+    assert frequency["frequency"] == "daily" and frequency["regular"]
+    assert frequency["missing_periods"] == 2 and frequency["duplicates"] == 1
+    assert frequency["gaps"][0]["missing"] == 2
+    assert Dataset.objects.get(pk=dataset_id).detected_frequency == "daily"
+
+
+def test_frequency_is_judged_per_series(ctx):
+    rows = "".join(f"2024-01-{d:02d},a,{d}\n2024-01-{d:02d},b,{d}\n" for d in range(1, 21))
+    _, response = put_mapping(
+        ctx, "date,store,sales\n" + rows, {"date": "date", "target": "sales", "series_id": "store"}
+    )
+    frequency = response.json()["column_mapping"]["parsing"]["frequency"]
+    assert frequency["frequency"] == "daily" and frequency["series_count"] == 2
+    assert frequency["duplicates"] == 0
+
+
+def test_monthly_text_dates_with_a_utc_offset(ctx):
+    rows = "".join(f"2024-{m:02d}-01 00:00:00+02:00,{m}\n" for m in range(1, 13))
+    _, response = put_mapping(ctx, "date,sales\n" + rows, {"date": "date", "target": "sales"})
+    assert response.json()["detected_frequency"] == "monthly"
+
+
+def test_irregular_dates_are_stored_as_irregular_not_rejected(ctx):
+    days = [1, 2, 9, 10, 25, 26, 27, 28]
+    rows = "".join(f"2024-01-{d:02d},{d}\n" for d in days) + "2024-03-15,1\n2024-06-30,2\n"
+    _, response = put_mapping(ctx, "date,sales\n" + rows, {"date": "date", "target": "sales"})
+    assert response.status_code == 200, response.content
+    assert response.json()["detected_frequency"] == "irregular"
 
 
 def test_dataset_without_a_stored_file_gives_409(ctx):

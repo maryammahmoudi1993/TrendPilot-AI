@@ -61,7 +61,7 @@ def update_mapping(*, dataset: Dataset, actor, data: dict, partial: bool) -> Dat
 
     dataset.column_mapping = mapping
     dataset.status = DatasetStatus.UPLOADED
-    dataset.detected_frequency = ""
+    dataset.detected_frequency = mapping["parsing"]["frequency"]["frequency"]
     dataset.save(update_fields=["column_mapping", "status", "detected_frequency", "updated_at"])
     record(
         AuditAction.DATASET_MAPPING,

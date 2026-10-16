@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 MISSING_TOKENS = frozenset({"", "na", "n/a", "nan", "null", "none", "-", "--"})
 MAX_EXAMPLES = 5
+MAX_FAILED_LINES = 20
 
 _GROUP_SPACES = "   '’"
 _SIGNS = {"+": 1, "-": -1, "−": -1}
@@ -103,6 +104,12 @@ class NumericColumnResult:
     empty: int = 0
     failed: int = 0
     failed_examples: list[str] = field(default_factory=list)
+    failed_lines: list[int] = field(default_factory=list)
+
+    @property
+    def missing(self) -> int:
+        """Empty cells plus cells that failed conversion; both are treated as missing."""
+        return self.empty + self.failed
 
     @property
     def non_empty(self) -> int:
@@ -117,6 +124,8 @@ class NumericColumnResult:
             "empty": self.empty,
             "failed": self.failed,
             "failed_examples": self.failed_examples,
+            "failed_lines": self.failed_lines,
+            "missing": self.missing,
         }
 
 
@@ -147,13 +156,15 @@ def parse_numeric_column(cells, decimal_hint: str | None = None) -> NumericColum
     cells = list(cells)
     decimal, ambiguous = detect_decimal_separator(cells, decimal_hint)
     result = NumericColumnResult(decimal, "," if decimal == "." else ".", ambiguous)
-    for cell in cells:
+    for index, cell in enumerate(cells):
         if is_missing(cell):
             result.empty += 1
         elif parse_number(cell, decimal) is None:
             result.failed += 1
             if len(result.failed_examples) < MAX_EXAMPLES:
                 result.failed_examples.append(cell)
+            if len(result.failed_lines) < MAX_FAILED_LINES:
+                result.failed_lines.append(index + 2)  # line 1 is the header
         else:
             result.converted += 1
     return result
