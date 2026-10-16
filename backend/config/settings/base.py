@@ -107,6 +107,9 @@ MEDIA_URL = "media/"
 
 DATASET_MAX_UPLOAD_BYTES = int(os.environ.get("DATASET_MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 DATASET_MAX_ROWS = int(os.environ.get("DATASET_MAX_ROWS", "500000"))
+# Share of rows allowed to have a different field count than the header (padded or
+# truncated on read). Above it the upload is rejected; at least one row is always allowed.
+DATASET_MAX_RAGGED_SHARE = float(os.environ.get("DATASET_MAX_RAGGED_SHARE", "0.01"))
 # Share of non-empty cells in a target/regressor column that must convert to numbers.
 DATASET_MIN_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_NUMERIC_SHARE", "0.95"))
 # Stricter bar for the target: silently losing the values we forecast is worse than for a

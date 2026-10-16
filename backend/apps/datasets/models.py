@@ -33,6 +33,11 @@ class Dataset(WorkspaceScopedModel):
         max_length=10, choices=DatasetStatus.choices, default=DatasetStatus.UPLOADED
     )
     row_count = models.PositiveIntegerField(null=True, blank=True)
+    upload_report = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Facts found at upload: delimiter and ragged rows (count and first lines).",
+    )
     column_mapping = models.JSONField(default=dict, blank=True)
     detected_frequency = models.CharField(max_length=20, blank=True, default="")
     created_by = models.ForeignKey(

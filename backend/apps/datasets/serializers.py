@@ -20,6 +20,7 @@ class DatasetSerializer(serializers.ModelSerializer):
             "sha256",
             "status",
             "row_count",
+            "upload_report",
             "column_mapping",
             "detected_frequency",
             "created_by",
@@ -66,6 +67,7 @@ class DatasetUploadSerializer(serializers.ModelSerializer):
         self._raw = raw
         self._sha256 = sha256
         self._row_count = info["row_count"]
+        self._upload_report = {"delimiter": info["delimiter"], "ragged": info["ragged"]}
         return value
 
     def create(self, validated_data):
@@ -79,6 +81,7 @@ class DatasetUploadSerializer(serializers.ModelSerializer):
             raw=self._raw,
             sha256=self._sha256,
             row_count=self._row_count,
+            upload_report=self._upload_report,
             name=name,
         )
 

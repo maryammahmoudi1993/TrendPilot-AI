@@ -18,6 +18,7 @@ def upload_dataset(
     raw: bytes,
     sha256: str,
     row_count: int,
+    upload_report: dict,
     name: str,
 ) -> Dataset:
     """Persist a validated upload: store the file under a random name and save the row."""
@@ -28,6 +29,7 @@ def upload_dataset(
         size=len(raw),
         sha256=sha256,
         row_count=row_count,
+        upload_report=upload_report,
         created_by=actor,
     )
     dataset.file.save(original_filename, ContentFile(raw), save=False)

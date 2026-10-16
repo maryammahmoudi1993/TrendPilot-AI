@@ -15,6 +15,7 @@ and ready for later phases (column mapping, cleaning, forecasting).
 | `size`, `sha256` | Computed server-side from the uploaded bytes. |
 | `status` | `uploaded` / `validated` / `failed` (later phases add the validated/failed transition). |
 | `row_count` | Data rows, excluding the header. |
+| `upload_report` | Facts found at upload: `delimiter` and `ragged` (`count`, `short`, `long`, first 10 `lines`). |
 | `column_mapping`, `detected_frequency` | Set by the mapping endpoint (column roles, parse results, frequency). |
 
 `sha256` is unique per workspace: uploading the same file twice to the same
@@ -42,9 +43,19 @@ in `backend/tests/isolation.py`.
 Before anything is stored, the uploaded file must have a `.csv` extension, be
 non-empty, be at or under `DATASET_MAX_UPLOAD_BYTES` (default 20 MB), decode as
 UTF-8 (BOM-aware) text, use a comma, semicolon or tab delimiter
-(`apps/datasets/validation.py` sniffs it), have at least one data row under its
-header, and have no more than `DATASET_MAX_ROWS` rows (default 500,000). Any
-failure is a uniform `400` with the reason in `error.details.file`.
+(`apps/datasets/validation.py` picks the one that gives most rows the same field
+count), have at least one data row under its header, and have no more than
+`DATASET_MAX_ROWS` rows (default 500,000). Any failure is a uniform `400` with the
+reason in `error.details.file`.
+
+**Ragged rows.** A row whose field count differs from the header is *ragged*. Short
+rows are padded with empty cells and long rows are truncated when the file is read, so
+a truncated last line no longer sinks an upload. Up to `DATASET_MAX_RAGGED_SHARE` of the
+rows (default 0.01 = 1%, and always at least one row) may be ragged; beyond that the
+upload is a `400` naming the count and the first lines, because a file that far out of
+shape is more likely the wrong delimiter or a broken export. Entirely blank lines are not
+counted as ragged. The count, short/long split and the first ten line numbers are stored
+in `upload_report.ragged` for the quality report.
 
 ## Column mapping
 
@@ -126,8 +137,7 @@ reject the mapping; the quality report and cleaning decide what to do.
 Saving a mapping resets the dataset to `uploaded`, recomputes `detected_frequency`
 and writes a `dataset.mapping` audit event with the roles before and after.
 The mapping is read synchronously from the stored file, so a very large file
-makes the request slower; a ragged CSV (rows with differing field counts) is
-already refused at upload.
+makes the request slower.
 
 ## Storage
 
