@@ -131,3 +131,10 @@ def test_as_dict_is_json_serialisable():
 
     result = detect_frequency(stamps(START, every(days=1), 20, skip={5}))
     assert json.loads(json.dumps(result.as_dict()))["frequency"] == "daily"
+
+
+def test_mostly_empty_calendar_is_irregular_not_daily_with_gaps():
+    offsets = [0, 1, 8, 9, 40, 41, 42, 100, 160, 300]
+    series = pd.Series(pd.to_datetime([START + timedelta(days=d) for d in offsets]))
+    result = detect_frequency(series)
+    assert result.frequency == "irregular" and result.missing_periods == 0

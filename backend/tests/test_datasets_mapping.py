@@ -296,7 +296,56 @@ def test_changing_the_mapping_resets_derived_state(ctx):
     )
     ctx["owner"].patch(mapping_url(ctx["ws"], dataset_id), {"target": "temp"}, format="json")
     dataset = Dataset.objects.get(pk=dataset_id)
-    assert dataset.status == DatasetStatus.UPLOADED and dataset.detected_frequency == ""
+    assert dataset.status == DatasetStatus.UPLOADED
+    assert dataset.detected_frequency == "daily"  # recomputed from the new mapping
+
+
+def daily_csv(days=30, skip=(), dup_last=False):
+    rows = [
+        f"{(date(2024, 1, 1) + timedelta(days=i)).isoformat()},{i}\n"
+        for i in range(days)
+        if i not in skip
+    ]
+    if dup_last:
+        rows.append(rows[-1])
+    return "date,sales\n" + "".join(rows)
+
+
+def test_frequency_is_detected_and_stored_with_the_mapping(ctx):
+    dataset_id, response = put_mapping(
+        ctx, daily_csv(30, skip={4, 5}, dup_last=True), {"date": "date", "target": "sales"}
+    )
+    body = response.json()
+    assert body["detected_frequency"] == "daily"
+    frequency = body["column_mapping"]["parsing"]["frequency"]
+    assert frequency["frequency"] == "daily" and frequency["regular"]
+    assert frequency["missing_periods"] == 2 and frequency["duplicates"] == 1
+    assert frequency["gaps"][0]["missing"] == 2
+    assert Dataset.objects.get(pk=dataset_id).detected_frequency == "daily"
+
+
+def test_frequency_is_judged_per_series(ctx):
+    rows = "".join(f"2024-01-{d:02d},a,{d}\n2024-01-{d:02d},b,{d}\n" for d in range(1, 21))
+    _, response = put_mapping(
+        ctx, "date,store,sales\n" + rows, {"date": "date", "target": "sales", "series_id": "store"}
+    )
+    frequency = response.json()["column_mapping"]["parsing"]["frequency"]
+    assert frequency["frequency"] == "daily" and frequency["series_count"] == 2
+    assert frequency["duplicates"] == 0
+
+
+def test_monthly_text_dates_with_a_utc_offset(ctx):
+    rows = "".join(f"2024-{m:02d}-01 00:00:00+02:00,{m}\n" for m in range(1, 13))
+    _, response = put_mapping(ctx, "date,sales\n" + rows, {"date": "date", "target": "sales"})
+    assert response.json()["detected_frequency"] == "monthly"
+
+
+def test_irregular_dates_are_stored_as_irregular_not_rejected(ctx):
+    days = [1, 2, 9, 10, 25, 26, 27, 28]
+    rows = "".join(f"2024-01-{d:02d},{d}\n" for d in days) + "2024-03-15,1\n2024-06-30,2\n"
+    _, response = put_mapping(ctx, "date,sales\n" + rows, {"date": "date", "target": "sales"})
+    assert response.status_code == 200, response.content
+    assert response.json()["detected_frequency"] == "irregular"
 
 
 def test_dataset_without_a_stored_file_gives_409(ctx):
