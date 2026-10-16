@@ -176,3 +176,52 @@ def test_list_and_retrieve_show_the_dataset(two_workspaces, client_for):
     detail = client.get(f"/api/workspaces/{ws.pk}/datasets/{created['id']}/").json()
     assert detail["id"] == created["id"]
     assert "file" not in detail
+
+
+def test_upload_with_a_trailing_short_row_is_accepted_and_the_report_is_stored(
+    two_workspaces, client_for
+):
+    ws = two_workspaces["a"]["workspace"]
+    content = b"date,value,store\n2024-01-01,1,a\n2024-01-02,2,a\n2024-01-03,3\n"
+    response = client_for(two_workspaces["a"]["owner"]).post(
+        f"/api/workspaces/{ws.pk}/datasets/",
+        {"file": csv_file(content=content)},
+        format="multipart",
+    )
+    assert response.status_code == 201, response.content
+    body = response.json()
+    assert body["row_count"] == 3
+    assert body["upload_report"]["delimiter"] == ","
+    assert body["upload_report"]["ragged"] == {"count": 1, "short": 1, "long": 0, "lines": [4]}
+    assert Dataset.objects.get(pk=body["id"]).upload_report == body["upload_report"]
+
+
+def test_upload_with_half_the_rows_ragged_is_rejected(two_workspaces, client_for):
+    ws = two_workspaces["a"]["workspace"]
+    content = b"date,value,store\n" + b"2024-01-01,1,a\n2024-01-02,2\n" * 5
+    response = client_for(two_workspaces["a"]["owner"]).post(
+        f"/api/workspaces/{ws.pk}/datasets/",
+        {"file": csv_file(content=content)},
+        format="multipart",
+    )
+    assert response.status_code == 400
+    assert "same number of fields" in response.json()["error"]["details"]["file"][0]
+    assert Dataset.objects.count() == 0
+
+
+def test_a_ragged_upload_can_still_be_mapped(two_workspaces, client_for):
+    ws = two_workspaces["a"]["workspace"]
+    client = client_for(two_workspaces["a"]["owner"])
+    content = b"date,value,store\n2024-01-01,1,a\n2024-01-02,2,a\n2024-01-03,3\n"
+    dataset_id = client.post(
+        f"/api/workspaces/{ws.pk}/datasets/",
+        {"file": csv_file(content=content)},
+        format="multipart",
+    ).json()["id"]
+    response = client.put(
+        f"/api/workspaces/{ws.pk}/datasets/{dataset_id}/mapping/",
+        {"date": "date", "target": "value", "series_id": "store"},
+        format="json",
+    )
+    assert response.status_code == 200, response.content
+    assert response.json()["column_mapping"]["parsing"]["target"]["converted"] == 3
