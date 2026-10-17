@@ -151,8 +151,12 @@ def detect_decimal_separator(cells, hint: str | None = None) -> tuple[str, bool]
     return ".", ambiguous_seen
 
 
-def parse_numeric_column(cells, decimal_hint: str | None = None) -> NumericColumnResult:
-    """Coerce a column of strings; count converted, empty and failed cells."""
+def parse_numeric_column(cells, decimal_hint: str | None = None, lines=None) -> NumericColumnResult:
+    """Coerce a column of strings; count converted, empty and failed cells.
+
+    ``lines`` gives the file line number of each cell; by default cell ``i`` is on line
+    ``i + 2`` (the header is line 1).
+    """
     cells = list(cells)
     decimal, ambiguous = detect_decimal_separator(cells, decimal_hint)
     result = NumericColumnResult(decimal, "," if decimal == "." else ".", ambiguous)
@@ -164,7 +168,7 @@ def parse_numeric_column(cells, decimal_hint: str | None = None) -> NumericColum
             if len(result.failed_examples) < MAX_EXAMPLES:
                 result.failed_examples.append(cell)
             if len(result.failed_lines) < MAX_FAILED_LINES:
-                result.failed_lines.append(index + 2)  # line 1 is the header
+                result.failed_lines.append(lines[index] if lines else index + 2)
         else:
             result.converted += 1
     return result

@@ -12,7 +12,7 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from .columns import read_columns
+from .columns import read_table
 from .dates import detect_date_column
 from .frequency import detect_frequency, to_timestamps
 from .numbers import parse_numeric_column
@@ -114,7 +114,7 @@ def _numeric_problem(name: str, result, kind: str) -> dict | None:
 def resolve_mapping(dataset, data: dict) -> dict:
     """Return the ``column_mapping`` to store, or raise ``MappingError``."""
     try:
-        header, columns = read_columns(dataset, [name for _, name in _roles(data)])
+        header, columns, lines = read_table(dataset, [name for _, name in _roles(data)])
     except (FileNotFoundError, ValueError) as exc:
         raise DatasetFileUnavailable() from exc
 
@@ -141,13 +141,13 @@ def resolve_mapping(dataset, data: dict) -> dict:
 
     hint = data.get("decimal_separator")
     parsing: dict = {"date": date_result.as_dict() if date_result.ok else None}
-    target = parse_numeric_column(columns[data["target"]], hint)
+    target = parse_numeric_column(columns[data["target"]], hint, lines)
     parsing["target"] = target.as_dict()
     if problem := _numeric_problem(data["target"], target, "target"):
         problems["target"] = problem
     regressors = {}
     for name in data.get("regressors") or []:
-        result = parse_numeric_column(columns[name], hint)
+        result = parse_numeric_column(columns[name], hint, lines)
         regressors[name] = result.as_dict()
         if problem := _numeric_problem(name, result, "regressor"):
             problems.setdefault("regressors", {})[name] = problem

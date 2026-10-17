@@ -57,7 +57,7 @@ def _allowed_ragged(row_count: int) -> int:
 
 
 def sniff_csv(raw: bytes) -> dict:
-    """Validate ``raw`` as CSV text; return ``delimiter``, ``header``, ``row_count``, ``ragged``.
+    """Validate ``raw`` as CSV text; return delimiter, header, row_count, blank_lines, ragged.
 
     Rows with fewer fields than the header are padded and rows with more are truncated when
     the data is read; ``ragged`` records how many there were (``count``, ``short``,
@@ -78,11 +78,14 @@ def sniff_csv(raw: bytes) -> dict:
     # detect_dialect only succeeds once it has seen at least one row, so there is a header.
     reader = csv.reader(io.StringIO(text), dialect)
     header = next(reader)
-    row_count = short = long = 0
+    row_count = blank = short = long = 0
     lines: list[int] = []
     for row in reader:
+        if not row:  # blank lines are neither data rows nor ragged rows
+            blank += 1
+            continue
         row_count += 1
-        if not row or len(row) == len(header):  # blank lines are not ragged rows
+        if len(row) == len(header):
             continue
         if len(row) < len(header):
             short += 1
@@ -106,5 +109,6 @@ def sniff_csv(raw: bytes) -> dict:
         "delimiter": dialect.delimiter,
         "header": header,
         "row_count": row_count,
+        "blank_lines": blank,
         "ragged": {"count": ragged, "short": short, "long": long, "lines": lines},
     }

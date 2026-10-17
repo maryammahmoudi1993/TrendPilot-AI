@@ -67,7 +67,11 @@ class DatasetUploadSerializer(serializers.ModelSerializer):
         self._raw = raw
         self._sha256 = sha256
         self._row_count = info["row_count"]
-        self._upload_report = {"delimiter": info["delimiter"], "ragged": info["ragged"]}
+        self._upload_report = {
+            "delimiter": info["delimiter"],
+            "blank_lines": info["blank_lines"],
+            "ragged": info["ragged"],
+        }
         return value
 
     def create(self, validated_data):
