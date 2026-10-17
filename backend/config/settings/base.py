@@ -123,6 +123,14 @@ DATASET_MIN_TARGET_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_TARGET_NUME
 DATASET_MIN_OBSERVATIONS_ERROR = int(os.environ.get("DATASET_MIN_OBSERVATIONS_ERROR", "10"))
 DATASET_MIN_OBSERVATIONS_WARN = int(os.environ.get("DATASET_MIN_OBSERVATIONS_WARN", "50"))
 
+# The validation task is stopped after the soft limit (clean failure) or killed at the hard
+# one. A dataset stuck in "validating" for longer than the stale limit may be re-validated.
+DATASET_VALIDATION_SOFT_TIME_LIMIT = int(
+    os.environ.get("DATASET_VALIDATION_SOFT_TIME_LIMIT", "300")
+)
+DATASET_VALIDATION_TIME_LIMIT = int(os.environ.get("DATASET_VALIDATION_TIME_LIMIT", "330"))
+DATASET_VALIDATION_STALE_SECONDS = int(os.environ.get("DATASET_VALIDATION_STALE_SECONDS", "900"))
+
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
 # Throttle counters live in the cache so they are shared between worker processes.
