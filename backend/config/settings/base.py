@@ -118,6 +118,11 @@ DATASET_MIN_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_NUMERIC_SHARE", "0
 # regressor. Cells that fail conversion are kept as missing, never dropped.
 DATASET_MIN_TARGET_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_TARGET_NUMERIC_SHARE", "0.99"))
 
+# Quality report: series with fewer usable target values than this are an error (and block
+# modelling when every series is that short) or a warning respectively.
+DATASET_MIN_OBSERVATIONS_ERROR = int(os.environ.get("DATASET_MIN_OBSERVATIONS_ERROR", "10"))
+DATASET_MIN_OBSERVATIONS_WARN = int(os.environ.get("DATASET_MIN_OBSERVATIONS_WARN", "50"))
+
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
 # Throttle counters live in the cache so they are shared between worker processes.

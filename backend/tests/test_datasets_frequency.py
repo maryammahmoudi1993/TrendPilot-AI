@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
-from apps.datasets.frequency import detect_frequency
+from apps.datasets.frequency import analyse_series, detect_frequency
 
 
 def stamps(start, step, count, skip=()):
@@ -138,3 +138,14 @@ def test_mostly_empty_calendar_is_irregular_not_daily_with_gaps():
     series = pd.Series(pd.to_datetime([START + timedelta(days=d) for d in offsets]))
     result = detect_frequency(series)
     assert result.frequency == "irregular" and result.missing_periods == 0
+
+
+def test_longest_gap_is_the_largest_run_of_missing_periods():
+    series = analyse_series(stamps(datetime(2024, 1, 1), every(days=1), 30, skip={5, 6, 7, 20}))
+    assert series.label == "daily"
+    assert series.missing == 4
+    assert series.longest_gap == 3
+
+
+def test_a_series_without_gaps_has_longest_gap_zero():
+    assert analyse_series(stamps(datetime(2024, 1, 1), every(days=1), 10)).longest_gap == 0

@@ -1,19 +1,10 @@
 import pytest
-from django.core.files.base import ContentFile
 
 from apps.datasets.columns import iter_chunks, read_columns, read_table
-from apps.datasets.models import Dataset
 from apps.datasets.validation import sniff_csv
+from tests.helpers import make_dataset
 
 pytestmark = pytest.mark.django_db
-
-
-def make_dataset(workspace, text: str) -> Dataset:
-    dataset = Dataset(workspace=workspace, name="d.csv", original_filename="d.csv", size=1)
-    dataset.sha256 = "0" * 64
-    dataset.file.save("d.csv", ContentFile(text.encode()), save=False)
-    dataset.save()
-    return dataset
 
 
 @pytest.fixture
