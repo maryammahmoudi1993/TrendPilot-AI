@@ -398,3 +398,13 @@ def test_read_columns_pads_short_rows(ctx, monkeypatch):
     monkeypatch.setattr("apps.datasets.columns.detect_dialect", lambda text: csv.excel)
     _, columns = read_columns(dataset, ["c"])
     assert columns == {"c": ["3", ""]}
+
+
+def test_failed_lines_are_file_lines_even_with_blank_lines_before_them(ctx):
+    rows = [f"2024-{1 + i // 28:02d}-{1 + i % 28:02d},{i}" for i in range(150)]
+    rows[40] = rows[40].split(",")[0] + ",oops"
+    text = "date,sales\n" + "\n".join(rows[:10]) + "\n\n" + "\n".join(rows[10:]) + "\n"
+    _, response = put_mapping(ctx, text, {"date": "date", "target": "sales"})
+    assert response.status_code == 200, response.content
+    # header = line 1, rows[0:10] = lines 2-11, blank = line 12, so rows[40] sits on line 43
+    assert response.json()["column_mapping"]["parsing"]["target"]["failed_lines"] == [43]
