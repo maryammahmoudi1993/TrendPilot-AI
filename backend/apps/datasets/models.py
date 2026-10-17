@@ -8,6 +8,7 @@ from apps.workspaces.scoping import WorkspaceScopedModel
 
 class DatasetStatus(models.TextChoices):
     UPLOADED = "uploaded", "Uploaded"
+    VALIDATING = "validating", "Validating"
     VALIDATED = "validated", "Validated"
     FAILED = "failed", "Failed"
 
@@ -39,6 +40,22 @@ class Dataset(WorkspaceScopedModel):
         help_text="Facts found at upload: delimiter and ragged rows (count and first lines).",
     )
     column_mapping = models.JSONField(default=dict, blank=True)
+    quality_report = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Versioned data-quality report (see docs/datasets.md); null until validated.",
+    )
+    validated_at = models.DateTimeField(null=True, blank=True)
+    validation_error = models.TextField(
+        blank=True, default="", help_text="Readable reason when validation failed."
+    )
+    validation_run = models.UUIDField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Token of the validation run in progress; a stale run's result is discarded.",
+    )
     detected_frequency = models.CharField(max_length=20, blank=True, default="")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

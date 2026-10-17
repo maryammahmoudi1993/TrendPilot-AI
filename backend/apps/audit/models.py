@@ -19,6 +19,7 @@ class AuditAction(models.TextChoices):
     MEMBER_REMOVE = "member.remove", "Member removed"
     MEMBER_LEAVE = "member.leave", "Member left"
     DATASET_MAPPING = "dataset.mapping", "Dataset column mapping saved"
+    DATASET_VALIDATE = "dataset.validate", "Dataset validation"
 
 
 class AuditEvent(models.Model):
