@@ -35,12 +35,13 @@ MIXED = "mixed"
 
 
 @dataclass
-class _Series:
+class SeriesFrequency:
     label: str
     observations: int = 0
     duplicates: int = 0
     missing: int = 0
     gaps: list[dict] = field(default_factory=list)
+    longest_gap: int = 0  # most consecutive periods missing in one gap
 
 
 @dataclass
@@ -109,30 +110,32 @@ def _calendar_step(uniq: pd.DatetimeIndex) -> int | None:
     return int(step)
 
 
-def _gaps_from(uniq, periods: np.ndarray) -> tuple[int, list[dict]]:
-    """Missing periods and the first few gaps, given each step's length in periods."""
+def _gaps_from(uniq, periods: np.ndarray) -> tuple[int, list[dict], int]:
+    """Missing periods, the first few gaps and the longest one, given each step's length."""
     missing_per = np.maximum(periods - 1, 0)
     missing = int(missing_per.sum())
     gaps = [
         {"after": uniq[i].isoformat(), "missing": int(missing_per[i])}
         for i in np.flatnonzero(missing_per)[:MAX_GAPS_LISTED]
     ]
-    return missing, gaps
+    return missing, gaps, int(missing_per.max()) if len(missing_per) else 0
 
 
-def _sparse(series: _Series) -> bool:
+def _sparse(series: SeriesFrequency) -> bool:
     return series.observations / (series.observations + series.missing) < MIN_COVERAGE
 
 
-def _irregular_if_sparse(series: _Series) -> _Series:
+def _irregular_if_sparse(series: SeriesFrequency) -> SeriesFrequency:
     if _sparse(series):
-        series.label, series.missing, series.gaps = IRREGULAR, 0, []
+        series.label, series.missing, series.gaps, series.longest_gap = IRREGULAR, 0, [], 0
     return series
 
 
-def _analyse(timestamps: pd.Series) -> _Series:
+def analyse_series(timestamps: pd.Series) -> SeriesFrequency:
     uniq = pd.DatetimeIndex(timestamps.drop_duplicates().sort_values())
-    result = _Series(UNKNOWN, observations=len(uniq), duplicates=len(timestamps) - len(uniq))
+    result = SeriesFrequency(
+        UNKNOWN, observations=len(uniq), duplicates=len(timestamps) - len(uniq)
+    )
     if len(uniq) < MIN_POINTS:
         return result
 
@@ -142,7 +145,9 @@ def _analyse(timestamps: pd.Series) -> _Series:
         periods = diffs // calendar
         result.label = CALENDAR_STEPS[calendar]
         multiple = (diffs % calendar == 0) & (diffs > 0)
-        result.missing, result.gaps = _gaps_from(uniq, np.where(multiple, periods, 1))
+        result.missing, result.gaps, result.longest_gap = _gaps_from(
+            uniq, np.where(multiple, periods, 1)
+        )
         return _irregular_if_sparse(result)
 
     seconds = np.rint((uniq[1:] - uniq[:-1]).total_seconds().to_numpy()).astype(np.int64)
@@ -152,7 +157,9 @@ def _analyse(timestamps: pd.Series) -> _Series:
         return result
     result.label = _fixed_label(int(base))
     multiple = seconds % base == 0
-    result.missing, result.gaps = _gaps_from(uniq, np.where(multiple, seconds // base, 1))
+    result.missing, result.gaps, result.longest_gap = _gaps_from(
+        uniq, np.where(multiple, seconds // base, 1)
+    )
     return _irregular_if_sparse(result)
 
 
@@ -161,11 +168,8 @@ def to_timestamps(cells, fmt: str, aware: bool) -> pd.Series:
     return pd.to_datetime(pd.Series([c.strip() for c in cells]), format=fmt, utc=aware or None)
 
 
-def detect_frequency(timestamps, series_ids=None) -> FrequencyResult:
-    """Detect the frequency of ``timestamps`` (parsed datetimes), per ``series_ids``."""
-    frame = pd.DataFrame({"ts": pd.Series(timestamps).reset_index(drop=True)})
-    frame["id"] = list(series_ids) if series_ids is not None else ""
-    per_series = {str(key): _analyse(group["ts"]) for key, group in frame.groupby("id", sort=False)}
+def combine_series(per_series: dict[str, SeriesFrequency]) -> FrequencyResult:
+    """Dataset-level result from each series' own analysis (see ``analyse_series``)."""
     multiple = len(per_series) > 1
 
     labels = {series.label for series in per_series.values() if series.label != UNKNOWN}
@@ -198,4 +202,13 @@ def detect_frequency(timestamps, series_ids=None) -> FrequencyResult:
             if frequency == MIXED
             else {}
         ),
+    )
+
+
+def detect_frequency(timestamps, series_ids=None) -> FrequencyResult:
+    """Detect the frequency of ``timestamps`` (parsed datetimes), per ``series_ids``."""
+    frame = pd.DataFrame({"ts": pd.Series(timestamps).reset_index(drop=True)})
+    frame["id"] = list(series_ids) if series_ids is not None else ""
+    return combine_series(
+        {str(key): analyse_series(group["ts"]) for key, group in frame.groupby("id", sort=False)}
     )
