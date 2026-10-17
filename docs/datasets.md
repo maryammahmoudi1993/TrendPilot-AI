@@ -54,8 +54,10 @@ a truncated last line no longer sinks an upload. Up to `DATASET_MAX_RAGGED_SHARE
 rows (default 0.01 = 1%, and always at least one row) may be ragged; beyond that the
 upload is a `400` naming the count and the first lines, because a file that far out of
 shape is more likely the wrong delimiter or a broken export. Entirely blank lines are not
-counted as ragged. The count, short/long split and the first ten line numbers are stored
-in `upload_report.ragged` for the quality report.
+counted as ragged and are not data rows: `row_count` excludes them and
+`upload_report.blank_lines` counts them (the quality report shows an info item). The
+ragged count, short/long split and the first ten line numbers are stored in
+`upload_report.ragged`.
 
 ## Column mapping
 
@@ -138,6 +140,12 @@ Saving a mapping resets the dataset to `uploaded`, recomputes `detected_frequenc
 and writes a `dataset.mapping` audit event with the roles before and after.
 The mapping is read synchronously from the stored file, so a very large file
 makes the request slower.
+
+Files are read by `apps/datasets/columns.py` in chunks of `DATASET_READ_CHUNK_ROWS`
+rows (default 50,000) with the stdlib `csv` module and the dialect chosen at upload,
+so the mapping endpoint and the quality report see exactly the same cells. Blank lines
+are skipped, short rows padded, long rows truncated, and every row keeps the file line
+it ended on (header = line 1), which is what `failed_lines` reports.
 
 ## Storage
 
