@@ -109,6 +109,8 @@ DATASET_MAX_UPLOAD_BYTES = int(os.environ.get("DATASET_MAX_UPLOAD_BYTES", str(20
 DATASET_MAX_ROWS = int(os.environ.get("DATASET_MAX_ROWS", "500000"))
 # Share of rows allowed to have a different field count than the header (padded or
 # truncated on read). Above it the upload is rejected; at least one row is always allowed.
+# Rows per chunk when a stored CSV is read for parsing or the quality report.
+DATASET_READ_CHUNK_ROWS = int(os.environ.get("DATASET_READ_CHUNK_ROWS", "50000"))
 DATASET_MAX_RAGGED_SHARE = float(os.environ.get("DATASET_MAX_RAGGED_SHARE", "0.01"))
 # Share of non-empty cells in a target/regressor column that must convert to numbers.
 DATASET_MIN_NUMERIC_SHARE = float(os.environ.get("DATASET_MIN_NUMERIC_SHARE", "0.95"))
