@@ -9,7 +9,7 @@ from apps.workspaces.scoping import WorkspaceScopedViewSetMixin
 
 from .models import Dataset
 from .serializers import DatasetSerializer, DatasetUploadSerializer, MappingSerializer
-from .services import update_mapping
+from .services import start_validation, update_mapping
 
 
 @extend_schema_view(
@@ -35,7 +35,7 @@ class DatasetViewSet(
 ):
     queryset = Dataset.objects.all()
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
-    required_actions = {"mapping": Action.EDIT}
+    required_actions = {"mapping": Action.EDIT, "validate": Action.EDIT}
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -67,6 +67,22 @@ class DatasetViewSet(
             partial=partial,
         )
         return Response(DatasetSerializer(dataset).data)
+
+    @extend_schema(
+        summary="Start a data-quality validation (Owner/Analyst only)",
+        description=(
+            "Queues a background task that builds the quality report and returns 202 with "
+            "status 'validating'. Poll the dataset until status is 'validated' or 'failed'. "
+            "409 'no_mapping' without a saved mapping, 409 'already_validating' while a "
+            "run is in progress."
+        ),
+        request=None,
+        responses={202: DatasetSerializer, **errors(403, 404, 409)},
+    )
+    @action(detail=True, methods=["post"], url_path="validate")
+    def validate(self, request, *args, **kwargs):
+        dataset = start_validation(dataset=self.get_object(), actor=request.user)
+        return Response(DatasetSerializer(dataset).data, status=status.HTTP_202_ACCEPTED)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
